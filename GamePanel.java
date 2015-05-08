@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage;
 
 public class GamePanel extends JPanel implements ActionListener, KeyListener
 {
+    private int difficulty = 4;
 	private int fieldpos, ms, x, y, health, score, offset, count, clock, wave;
 	private boolean start, end, w, a, s, d; //start marks the game has started, end marks if the game has ended, w is true if w is pressed, a is true if a is pressed, etc.
 	private boolean tissue, shoes, bottle, gloves, glasses, mask, player = false; //will be true if the power up is currently being used
@@ -177,7 +178,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					hbar.buf(1);
 				health = Math.min(health+1, 100);
 			}
-			if(clock % 300 == 0)
+			if(clock % (100*difficulty) == 0)
                 timecount++;
                 System.out.println(timecount);
 		}
