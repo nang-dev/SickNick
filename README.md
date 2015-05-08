@@ -1,5 +1,22 @@
-# Sick Nick Game
+# Sick-Nick
+Under construction. <br/>
+Current Version: v1.0.8 <br/>
+Coded with help from  <a href="https://github.com/nathanang2000/">@nathanang2000</a> and <a href="https://github.com/jerr060599/">@jerr060599</a><br/>
+<br/>
+Current Agenda: <br/>
+* Add a Home Page; more options for user <br/>
+* Create .jar / .exe / .app file for convenience <br/>
 
-Put all of this into a file and run Runner.java
+### Compilation
+After downloading all the files into a directory, type in the following command:
 
-Enjoy!
+    javac Runner.java GamePanel.java Instructions.java ScorePanel.java ScoreHandler.java Pair.java
+
+This will compile all the programs, and create the class file. Then, to run the program, type:
+
+    java Runner
+
+
+### Gameplay
+Here's a preview:
+    ![Sick Nick Gameplay Preview](https://raw.github.com/michael153/Sick-Nick/master/Gameplay.png)
