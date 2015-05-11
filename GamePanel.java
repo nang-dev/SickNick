@@ -11,40 +11,45 @@ import java.awt.image.BufferedImage;
 
 public class GamePanel extends JPanel implements ActionListener, KeyListener
 {
-    private int difficulty = 4;
-	private int fieldpos, ms, x, y, health, score, offset, count, clock, wave;
-	private boolean start, end, w, a, s, d; //start marks the game has started, end marks if the game has ended, w is true if w is pressed, a is true if a is pressed, etc.
+	private int fieldpos, ms, x, y, health, score, offset, count, clock, wave, timecount, difficulty = 4;
+	//start marks the game has started, end marks if the game has ended, running is if the master timer is running, w is true if w is pressed, a is true if a is pressed, etc.
+	private boolean start, end, running, w, a, s, d;
 	private boolean tissue, shoes, bottle, gloves, glasses, mask, player = false; //will be true if the power up is currently being used
 	private String name; //this will be the name of the player playing right now
 	private ArrayList<Item> powerloc = new ArrayList<Item>();
 	private ArrayList<People> people = new ArrayList<People>();
 	private Stack<Integer> notify = new Stack<Integer>();
-    private int timecount = 0;
+	private int pillcount;
+	private boolean pill = false;
+	private boolean pilluse = false;
+	private boolean pilldraw = false;
+
+
+	public JButton home0, quit, replay; //home button that will cause action to happen in HomePage.java
 	private JTextField njt; //stands for name jtextfield, is the first jtextfield that asks for the players name
 	private JLabel caption; //caption is the jlabel associated with the text field that explains what it's for
 	private JPanel game; //the actual panel that holds the game
+
 	private Image bg;
 	private javax.swing.Timer master, pplgen, powergen;
-	private javax.swing.Timer[] powertime = new javax.swing.Timer[6];
+	private javax.swing.Timer[] powertime = new javax.swing.Timer[7];
 
-	private int[] pclock = new int[6];
+	private int[] pclock = new int[7];
 
-	private ScorePanel after;
+	private JPanel bpanel; //panel used to hold buttons after gameover
+	public ScorePanel after; //make this public so that HomePage can access a button in this
 	private Thread masterT = new Thread(new MyTimer());//<-- the loop/timer thread
-	private boolean running;
 	private MyBuffer hbar; //this is a custom class that will animate the health bar
 
+	//List of constants
 	//WIDTH and HEIGHT are the width and height of the character
-	private final int SPEED = 2;
+	private final int SPEED = 2; //every frame, SickNick moves by 2 pixels in the direction
 	private final int WIDTH = 24;
 	private final int HEIGHT = 43;
-	private final int LANE_WIDTH = 54; //the width of each "row" in game
+	private final int LANE_WIDTH = 54; //the width of each "row" in game, game is composed of 10 rows to easily organize things
 
-
-	//<--use this to start the loop/new timer
-	public void startLoop() { masterT.start(); }
-	//<-- use this to stop it.
-	public void stopLoop() { running = false; }
+	private void startLoop() { masterT.start(); } //<--use this to start the loop/new timer
+	private void stopLoop() { running = false; } // use this to stop it.
 
 	public GamePanel()
 	{
@@ -52,12 +57,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 		setPreferredSize(new Dimension(1280, 720));
 		master = new javax.swing.Timer(1000/40, this); //40 FPS
 		//powergen = new javax.swing.Timer(40000, this); //Refreshes every 2/3rds of a minute
-		powergen = new javax.swing.Timer(400, this); //Refreshes every 2/3rds of a minute
-		//pplgen = new javax.swing.Timer(6000, this); //Refreshes every 6 seconds
+		powergen = new javax.swing.Timer(400, this); //Refreshes very fast, debug mode
 		pplgen = new javax.swing.Timer(6000, this); //Refreshes every 6 seconds
+		//pplgen = new javax.swing.Timer(600, this); //Refreshes every 0.6 seconds
 		hbar = new MyBuffer(100, 0.15); //initializing MyBuffer, starts of at 100, and transitions at a speed of 0.15
 
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 7; i++)
 			powertime[i] = new javax.swing.Timer(1000/10, this); //10 FPS, each power up lasts 10 seconds, so 10*10 frames
 
 		start = false;
@@ -83,6 +88,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			private DecimalFormat df = new DecimalFormat("0000000000");
 			Image nick = Toolkit.getDefaultToolkit().getImage("img/SickNick.png");
 			Image sick = Toolkit.getDefaultToolkit().getImage("img/SickMan.png");
+			Image pillImg = Toolkit.getDefaultToolkit().getImage("img/pill.png");
+
 			Color grass = new Color(124, 252, 0); //Color of the foreground, which will look like grass
 			//create game's own paintComponent method so that things can also be drawn in game
 			long tick = System.currentTimeMillis();
@@ -97,7 +104,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					{
 						tick = System.currentTimeMillis();
 						fps = curFps;
-						System.out.println(fps + " fps");
+                        //System.out.println(fps + " fps");
 						curFps = 0;
 					}
 					curFps++;
@@ -128,24 +135,32 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 
 					for (int i = 0; i < people.size(); i++) //as time goes on, move sick people to the left x pixels
 					{
-						g.drawImage(people.get(i).img, people.get(i).x, people.get(i).y, people.get(i).x + 20, people.get(i).y + 30, 0, 0, 120, 200, this); //draw the image, keeping all the information
+						g.drawImage(people.get(i).img, people.get(i).x, people.get(i).y, people.get(i).x + WIDTH, people.get(i).y + HEIGHT, 0, 0, 120, 200, this); //draw the image, keeping all the information
+						if(pill || pilldraw)
+							g.drawImage(pillImg, 700, 10, 32, 32, this);
 						if (glasses)
 						{
-							g.setColor(Color.BLACK);
-							g.drawOval(people.get(i).x+10 - people.get(i).radius, people.get(i).y+15 - people.get(i).radius, 2*people.get(i).radius, 2*people.get(i).radius);
+							g.setColor(Color.RED);
+							g.drawOval(people.get(i).x+(WIDTH/2) - people.get(i).radius, people.get(i).y+(HEIGHT/2) - people.get(i).radius, 2*people.get(i).radius, 2*people.get(i).radius);
 						}
 					}
 				}
 			}
 		};
-
+		home0 = new JButton("Back to Homepage"); //this will button will return user to the mainpage
 		caption = new JLabel("Enter Your Name: ");
 		njt = new JTextField("");
 		game.setPreferredSize(new Dimension(960, 540)); //the size of the game is
+
 		add(caption);
 		add(njt);
+		add(home0);
+
 		caption.setBounds(490, 345, 120, 30);
 		njt.setBounds(610, 345, 180, 30);
+		home0.setBounds(20, 650, 160, 30);
+
+		home0.addActionListener(this);
 		njt.addActionListener(this);
 		addKeyListener(this); //add this to the Panel so that the keys can be used to move the character around
 	}
@@ -179,8 +194,22 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 				health = Math.min(health+1, 100);
 			}
 			if(clock % (100*difficulty) == 0)
-                timecount++;
-                System.out.println(timecount);
+				timecount++;
+			if(pilluse)
+			{
+				pillcount++;
+
+				if(pillcount % (15) == 0)
+					pilldraw = true;
+				if(pillcount % 15 == 7)
+					pilldraw = false;
+				if(pillcount  % 200 == 0)
+				{
+					pillcount = 0;
+					pilluse = false;
+					pilldraw = false;
+				}
+			}
 		}
 
 		//generate power up
@@ -189,8 +218,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			if (powerloc.size() < 3) //after this, maximum of 3 at all times
 			{
 				int rx, ry, ri;
-				//0: Tissues, 1: Sturdy Shoes, 2: Hand Sanitizer, 3: Gloves, 4: Glasses, 5: Face Mask
-				int power_ind[] = {0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5}; //power_ind is weighted so easier to get 0 than 5
+				//0: Tissues, 1: Sturdy Shoes, 2: Hand Sanitizer, 3: Gloves, 4: Glasses, 5: Face Mask, 6: Pill
+				int power_ind[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 6,6,6,6,6,6,6}; //power_ind is weighted so easier to get 0 than 5
 				rx = (int)(Math.random()*(960 - 32)) + 960; //out of the screen so the user can't see it being created
 				ry = (int)(Math.random()*(540 - 3*LANE_WIDTH - 32)); //32 so there is room for the entire icon
 				ri = (int)(Math.random()*power_ind.length);
@@ -207,25 +236,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			Random r = new Random((long)Math.random()*1000);
 			//too easy how to make this increase when the game gets harder?
 			int[] weighted = {0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7};
-			int rval = 8 - 8/(clock+1);
-			int rnum = (int)(Math.random()*(rval + timecount)+0); //# of possible sick people will depend of score and time played (to make it harder)
+			int rval = 10 - 10/(clock+1);
+			int rnum = (rval + timecount + score/10000)/2 + r.nextInt((rval + timecount + score/10000)/2); //# of possible sick people will depend of score and time played (to make it harder)
+			//System.out.println("Upperbound of #people: " + (rval + timecount + score/10000));
 			int ry = -1;
 			for (int i = 0; i < rnum; i++) //draw sick people depending on random number
 			{
 				if(people.size() > 0)
 				{
 					//random y value 0
-					do { ry = (int)((Math.random() * (7*LANE_WIDTH-30)) + 3*LANE_WIDTH); }
-					while (Math.abs(ry - people.get(people.size()-1).y) <= 30);
+					do { ry = (int)((Math.random() * (7*LANE_WIDTH-HEIGHT)) + 3*LANE_WIDTH); }
+					while (Math.abs(ry - people.get(people.size()-1).y) <= HEIGHT);
 				}
 				else
-					ry = (int)((Math.random() * (7*LANE_WIDTH-30)) + 3*LANE_WIDTH);
+					ry = (int)((Math.random() * (7*LANE_WIDTH-HEIGHT)) + 3*LANE_WIDTH);
 				int sign[] = {-1, 1};
 				people.add(new People(1300 + sign[(int)(Math.random()*2)]*r.nextInt(300), ry, weighted[r.nextInt(weighted.length)]));
 			}
 		}
 
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 7; i++)
 		{
 			if (e.getSource() == powertime[i])
 			{
@@ -239,18 +269,16 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					else if (i == 3) gloves = false;
 					else if (i == 4) glasses = false;
 					else if (i == 5) mask = false;
+					//else if (i == 6) pill = false;
 					powertime[i].stop();
 				}
 			}
 		}
 
-		//piece of code if the replay button is hit
-		if (end)
-		{
-			//WORKING ON THIS PART~~
-			if (e.getSource() == after.replay)
-				new GamePanel();
-		}
+		if (end && e.getSource() == quit)
+			System.exit(0);
+		if (end && e.getSource() == replay)
+			System.out.println("Replay Requested...");
 	}
 
 	//the new timer will trigger this method, running at around 60fps
@@ -287,26 +315,47 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 				y = 540 - HEIGHT;
 			if ((x < -1*WIDTH - SPEED/2) || hbar.value <= 0) //you lose, too far to the left, the SPEED/2 serves as a leniency
 			{
-				System.out.println("Out of Screen, YOU LOSE!");
+				System.out.println("Game Over!");
 				end = true;
+
 				master.stop();
 				pplgen.stop();
 				powergen.stop();
+
 				player = false;
 				game.setVisible(false);
+				home0.setVisible(true); //bring back the home button
+				remove(game); //destroy the gamepanel so that it's not still running in the background
+
+				quit = new JButton("Quit");
+				replay = new JButton("Play Again");
+
+				bpanel = new JPanel();
+				bpanel.setPreferredSize(new Dimension(640, 60));
+				//set to FlowLayout(FlowLayout.RIGHT) so the buttons are right justified
+				bpanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+
+				bpanel.add(quit);
+				bpanel.add(replay);
+				quit.addActionListener(this);
+				replay.addActionListener(this);
+
 				after = new ScorePanel(score, name);
 				after.setPreferredSize(new Dimension(640, 640));
-				//TOO SUDDEN, ADD SOMETHING IN BETWEEN
+
 				add(after);
-				after.replay.addActionListener(this);
 				after.setBounds(320, 40, 640, 640);
+
+				add(bpanel);
+				bpanel.setBounds(640, 645, 640, 60);
 			}
 
 			boolean changed = false;
 			for (int i = 0; i < powerloc.size(); i++)
 			{
 				powerloc.get(i).x--;
-				if (Math.abs(x - (powerloc.get(i).x)) <= 20 && Math.abs(y-(powerloc.get(i).y+3*LANE_WIDTH)) <= 32)
+				//if (Math.abs(x - (powerloc.get(i).x)) <= 32 && Math.abs(y-(powerloc.get(i).y+3*LANE_WIDTH)) <= 32)
+				if (touching(x, y, WIDTH, HEIGHT, powerloc.get(i).x, powerloc.get(i).y + 3*LANE_WIDTH, 32, 32))
 				{
 					int type = powerloc.get(i).t;
 					if (type == 0)
@@ -331,8 +380,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					else if (type == 3)
 					{
 						gloves = true;
-						hbar.buf(Math.min(((int)(Math.ceil(health*1.25))), 100) - health); //find the change of health to add
-						health = Math.min((int)(Math.ceil(health*1.25)), 100); //increase health by 25%
 						notify.add(3);
 					}
 					else if (type == 4)
@@ -347,6 +394,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 						health = Math.min((int)(Math.ceil(health*1.5)), 100); //increase healthy by 50%
 						notify.add(5);
 					}
+					else if (type == 6)
+					{
+						pill = true;
+						pillcount = 0;
+						notify.add(6);
+
+					}
 					//while (notify.size() > 6)
 						//notify.remove();
 					powerloc.set(i, new Item(-100, -100, type)); //set it to unvisible, do not delete b/c deleting will mess up indexing
@@ -354,7 +408,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					health = Math.min(health+10, 100); //ambigous effect no matter which one
 					changed = true;
 					pclock[powerloc.get(i).t] = 0;
-					powertime[powerloc.get(i).t].start();
+					//powertime[powerloc.get(i).t].start();
 				}
 			}
 			if (changed)
@@ -372,21 +426,66 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			{
 				//people.get(i).x -= 2; //update people's position
 				people.get(i).x -= people.get(i).speed; //update people's position
-				int d = dist(x + WIDTH/2, y + HEIGHT/2, people.get(i).x + 20/2, people.get(i).y + 30/2); //save the distance between player and sick man, add WIDTH/2 and HEIGHT/2 to find the true center
+				int dx = dist(x + WIDTH/2, y + HEIGHT/2, people.get(i).x + WIDTH/2, people.get(i).y + HEIGHT/2); //save the distance between player and sick man, add WIDTH/2 and HEIGHT/2 to find the true center
 				if (clock % 4 == 0) //Make it only 15fps so that ways it's not an automatic death
 				{
-					if (d < people.get(i).radius)
+					if (dx < people.get(i).radius)
 					{
-						int val = (int)(Math.ceil(Math.sqrt((people.get(i).radius - d)*people.get(i).sicklevel/4)));
-						health -= val; //Decrease the health since the player is within the sick range
-						hbar.buf((-1)*val); //buf in the appropriate value to animate the health bar
+						int val = (int)(Math.ceil(Math.sqrt((people.get(i).radius - dx)*people.get(i).sicklevel/4)));
+						if (!gloves && !pilluse)
+						{
+							health -= val; //Only decrease the health if the user isn't immune
+							hbar.buf((-1)*val); //buf in the appropriate value to animate the health bar
+						}
 					}
 				}
-				if (Math.abs(x - people.get(i).x) < 23 && Math.abs(y - people.get(i).y + 10) < 30)
+				//if (Math.abs(x - people.get(i).x) < WIDTH && Math.abs(y - people.get(i).y + 10) < HEIGHT)
+				if (touching(x, y, WIDTH, HEIGHT, people.get(i).x, people.get(i).y, WIDTH, HEIGHT))
 				{
-					people.get(i).x = -100;
-					health -= (people.get(i).sicklevel + 1)*4;
-					hbar.buf((-1)*(people.get(i).sicklevel + 1)*4);
+					if (!gloves && !pilluse)
+					{
+						people.get(i).x = -100;
+						health -= (people.get(i).sicklevel + 1)*4;
+						hbar.buf((-1)*(people.get(i).sicklevel + 1)*4);
+					}
+					if (gloves)
+					{
+						if (w && d)
+						{
+							people.get(i).x += 10;
+							people.get(i).y -= 10;
+						}
+						else if (w && a)
+						{
+							people.get(i).x -= 10;
+							people.get(i).y -= 10;
+						}
+						else if (s && d)
+						{
+							people.get(i).x += 10;
+							people.get(i).y += 10;
+						}
+						else if (s && a)
+						{
+							people.get(i).x -= 10;
+							people.get(i).y += 10;
+						}
+						else if (w) people.get(i).y -= 15;
+						else if (a) people.get(i).x -= 15;
+						else if (s) people.get(i).y += 15;
+						else if (d) people.get(i).x += 15;
+						if (people.get(i).x > 960 - WIDTH) //out of bounds (too far to the right)
+							people.get(i).x = 960 - WIDTH; //leave 5 spaces for the circle because it is the position of the top right corner
+						if (people.get(i).y < 162) //out of bounds (too far up). this isn't 0 because the player can't go into the background
+							people.get(i).y = 162;
+						if (people.get(i).y > 540 - HEIGHT) //out of bounds (too far down)
+							people.get(i).y = 540 - HEIGHT;
+						if (health + 3 <= 100)
+						{
+							health += 3;
+							hbar.buf(3);
+						}
+					}
 					changed = true;
 				}
 			}
@@ -406,16 +505,22 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 		{
 			name = njt.getText(); //get the text in the textbox
 			remove(njt); //remove the textfield
+			//remove(home0); //remove the home button, because it'll be awkward
+			home0.setVisible(false);
+
 			add(game); //add the gamePanel
 			game.setBounds(160, 90, 960, 540);
-			game.setBorder(BorderFactory.createLineBorder(Color.black));
+			game.setBorder(BorderFactory.createLineBorder(Color.BLACK));
 			start = true;
+
 			//redraw and revalidate everything
 			requestFocus();
 			master.start();
 			powergen.start();
 			pplgen.start();
 			player = true;
+
+			repaint(); //repaint the entire panel to make sure that the button is removed
 		}
 	}
 
@@ -430,6 +535,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			d = true;
 		if (e.getKeyCode() == KeyEvent.VK_LEFT || e.getKeyCode() == KeyEvent.VK_A)
 			a = true;
+		if(e.getKeyChar() == 'u')
+		{
+			if(pill)
+			{
+				pilluse = true;
+				pill = false;
+			}
+		}
 	}
 
 	public void keyReleased(KeyEvent e)
@@ -450,6 +563,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 	//Find the distance between points (x1, y1) and (x2, y2)
 	int dist(int x1, int y1, int x2, int y2) { return (int)(Math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2))); }
 
+	//Find out if two rectangles of area are touching
+	boolean touching(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
+	{
+		if (x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2)
+			return true;
+		else return false;
+	}
+
 	class Item implements Comparator<Item>, Comparable<Item>
 	{
 		//This is a class that makes the data structure called Item, adopted from C++'s pair
@@ -469,6 +590,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			else if (t == 3) img = Toolkit.getDefaultToolkit().getImage("img/Gloves.png");
 			else if (t == 4) img = Toolkit.getDefaultToolkit().getImage("img/Glasses.png");
 			else if (t == 5) img = Toolkit.getDefaultToolkit().getImage("img/Mask.png");
+			else if (t == 6) img = Toolkit.getDefaultToolkit().getImage("img/pill.png");
 		}
 
 		public int compareTo(Item d)
@@ -496,10 +618,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			this.y = y;
 			this.sicklevel = sicklevel;
 			this.speed = (int)((Math.log(8-sicklevel)+5)/3);
-			if(sicklevel!=0)
-                this.radius = 5*(sicklevel)+(int)(Math.random()*(sicklevel+timecount)+timecount);
+			if(sicklevel != 0)
+			{
+				this.radius = 5*(sicklevel)+(int)(Math.random()*(sicklevel+timecount)+timecount);
+				//System.out.println("Radius of LVL" + sicklevel + ": " + this.radius);
+			}
             else
-                this.radius = 0;
+				this.radius = 0;
 			if (sicklevel == 1) img = Toolkit.getDefaultToolkit().getImage("img/SickPeople/SickMan1.png");
 			else if (sicklevel == 2) img = Toolkit.getDefaultToolkit().getImage("img/SickPeople/SickMan2.png");
 			else if (sicklevel == 3) img = Toolkit.getDefaultToolkit().getImage("img/SickPeople/SickMan3.png");
@@ -589,4 +714,3 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 	}
 
 }
-
