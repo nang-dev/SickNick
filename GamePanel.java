@@ -20,10 +20,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 	private ArrayList<People> people = new ArrayList<People>();
 	private Stack<Integer> notify = new Stack<Integer>();
 	private int pillcount;
+
 	private boolean pill = false;
 	private boolean pilluse = false;
 	private boolean pilldraw = false;
 
+	private boolean glovedraw = false;
+    private int glovecount;
 
 	public JButton home0, quit, replay; //home button that will cause action to happen in HomePage.java
 	private JTextField njt; //stands for name jtextfield, is the first jtextfield that asks for the players name
@@ -57,7 +60,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 		setPreferredSize(new Dimension(1280, 720));
 		master = new javax.swing.Timer(1000/40, this); //40 FPS
 		//powergen = new javax.swing.Timer(40000, this); //Refreshes every 2/3rds of a minute
-		powergen = new javax.swing.Timer(400, this); //Refreshes very fast, debug mode
+		powergen = new javax.swing.Timer(300, this); //Refreshes very fast, debug mode
 		pplgen = new javax.swing.Timer(6000, this); //Refreshes every 6 seconds
 		//pplgen = new javax.swing.Timer(600, this); //Refreshes every 0.6 seconds
 		hbar = new MyBuffer(100, 0.15); //initializing MyBuffer, starts of at 100, and transitions at a speed of 0.15
@@ -89,7 +92,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			Image nick = Toolkit.getDefaultToolkit().getImage("img/SickNick.png");
 			Image sick = Toolkit.getDefaultToolkit().getImage("img/SickMan.png");
 			Image pillImg = Toolkit.getDefaultToolkit().getImage("img/pill.png");
-
+            Image gloveImg = Toolkit.getDefaultToolkit().getImage("img/gloves.png");
 			Color grass = new Color(124, 252, 0); //Color of the foreground, which will look like grass
 			//create game's own paintComponent method so that things can also be drawn in game
 			long tick = System.currentTimeMillis();
@@ -138,6 +141,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 						g.drawImage(people.get(i).img, people.get(i).x, people.get(i).y, people.get(i).x + WIDTH, people.get(i).y + HEIGHT, 0, 0, 120, 200, this); //draw the image, keeping all the information
 						if(pill || pilldraw)
 							g.drawImage(pillImg, 700, 10, 32, 32, this);
+                        if(glovedraw)
+                            g.drawImage(gloveImg, 650, 10, 32, 32, this);
 						if (glasses)
 						{
 							g.setColor(Color.RED);
@@ -199,15 +204,30 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 			{
 				pillcount++;
 
-				if(pillcount % (15) == 0)
+				if(pillcount % (20) == 0)
 					pilldraw = true;
-				if(pillcount % 15 == 7)
+				if(pillcount % 20 == 12)
 					pilldraw = false;
-				if(pillcount  % 200 == 0)
+				if(pillcount  % 300 == 0)
 				{
 					pillcount = 0;
 					pilluse = false;
 					pilldraw = false;
+				}
+			}
+			if(gloves)
+			{
+				glovecount++;
+
+				if(glovecount % (20) == 0)
+					glovedraw = true;
+				if(glovecount % 20 == 12)
+					glovedraw = false;
+				if(glovecount  % 300 == 0)
+				{
+					glovecount = 0;
+					glovedraw = false;
+					gloves = false;
 				}
 			}
 		}
@@ -215,11 +235,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 		//generate power up
 		if (e.getSource() == powergen)
 		{
-			if (powerloc.size() < 3) //after this, maximum of 3 at all times
+			if (powerloc.size() < 4) //after this, maximum of 3 at all times
 			{
 				int rx, ry, ri;
 				//0: Tissues, 1: Sturdy Shoes, 2: Hand Sanitizer, 3: Gloves, 4: Glasses, 5: Face Mask, 6: Pill
-				int power_ind[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 6,6,6,6,6,6,6}; //power_ind is weighted so easier to get 0 than 5
+				int power_ind[] = {0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5,5, 6,6,6}; //power_ind is weighted so easier to get 0 than 5
 				rx = (int)(Math.random()*(960 - 32)) + 960; //out of the screen so the user can't see it being created
 				ry = (int)(Math.random()*(540 - 3*LANE_WIDTH - 32)); //32 so there is room for the entire icon
 				ri = (int)(Math.random()*power_ind.length);
@@ -380,6 +400,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener
 					else if (type == 3)
 					{
 						gloves = true;
+						glovecount =0;
 						notify.add(3);
 					}
 					else if (type == 4)
